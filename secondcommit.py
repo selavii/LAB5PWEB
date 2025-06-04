@@ -1,4 +1,4 @@
-#Add simple HTTP response caching using local file
+#Add content negotiation (support JSON response formatting)
 #!/usr/bin/env python3
 
 import argparse
@@ -9,11 +9,12 @@ import webbrowser
 import os
 import hashlib
 import pickle
+import json
 from urllib.parse import urlparse, quote_plus
 from bs4 import BeautifulSoup
 from pathlib import Path
 
-# Create a directory for caching
+# Setup cache directory
 CACHE_DIR = Path.home() / ".go2web_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
@@ -57,7 +58,7 @@ def perform_http_get(target_url, accept='text/html', redirects=5):
 
         headers = {
             "Host": host,
-            "User-Agent": "go2web",
+            "User-Agent": "go2web/1.0",
             "Accept": accept,
             "Connection": "close"
         }
@@ -151,8 +152,15 @@ def main():
         accept_type = "application/json" if args.json else "text/html"
         ctype, body = perform_http_get(args.url, accept_type)
         if body:
-            output = body if "json" in ctype else convert_to_text(body)
-            print(output)
+            if "application/json" in ctype:
+                try:
+                    parsed = json.loads(body)
+                    print(json.dumps(parsed, indent=2))
+                except Exception:
+                    print("Invalid JSON response.")
+                    print(body)
+            else:
+                print(convert_to_text(body))
     elif args.search:
         query = " ".join(args.search)
         search_bing(query)
