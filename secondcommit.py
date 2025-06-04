@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-#Basic HTTP GET with socket/SSL support
-
-
+#Add HTML-to-text conversion for human-readable output
 import argparse
 import socket
 import ssl
 from urllib.parse import urlparse
+import html2text
 
 def perform_http_get(target_url, accept='text/html', depth=5):
     try:
@@ -48,6 +47,12 @@ def perform_http_get(target_url, accept='text/html', depth=5):
         print(f"Request error: {e}")
         return None, None
 
+def convert_to_text(html_content):
+    h = html2text.HTML2Text()
+    h.ignore_links = False
+    h.ignore_images = True
+    return h.handle(html_content)
+
 def main():
     parser = argparse.ArgumentParser(description="go2web - Minimal web client")
     parser.add_argument("-u", "--url", help="Fetch content from URL")
@@ -59,7 +64,8 @@ def main():
         accept_type = "application/json" if args.json else "text/html"
         ctype, body = perform_http_get(args.url, accept_type)
         if body:
-            print(body)
+            output = body if "json" in ctype else convert_to_text(body)
+            print(output)
     elif args.search:
         print(f"Search mode: {' '.join(args.search)}")
     else:
