@@ -1,4 +1,4 @@
-#Add content negotiation (support JSON response formatting)
+#Add custom User-Agent string to identify tool
 #!/usr/bin/env python3
 
 import argparse
@@ -9,12 +9,11 @@ import webbrowser
 import os
 import hashlib
 import pickle
-import json
 from urllib.parse import urlparse, quote_plus
 from bs4 import BeautifulSoup
 from pathlib import Path
 
-# Setup cache directory
+# Cache setup
 CACHE_DIR = Path.home() / ".go2web_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
@@ -58,7 +57,7 @@ def perform_http_get(target_url, accept='text/html', redirects=5):
 
         headers = {
             "Host": host,
-            "User-Agent": "go2web/1.0",
+            "User-Agent": "go2web/1.0 (CLI tool for HTTP requests)",
             "Accept": accept,
             "Connection": "close"
         }
@@ -154,6 +153,7 @@ def main():
         if body:
             if "application/json" in ctype:
                 try:
+                    import json
                     parsed = json.loads(body)
                     print(json.dumps(parsed, indent=2))
                 except Exception:
