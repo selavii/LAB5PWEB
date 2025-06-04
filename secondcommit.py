@@ -1,3 +1,6 @@
+# Add HTTP redirect handling (301/302)
+#!/usr/bin/env python3
+
 import argparse
 import socket
 import ssl
@@ -6,7 +9,11 @@ import webbrowser
 from urllib.parse import urlparse, quote_plus
 from bs4 import BeautifulSoup
 
-def perform_http_get(target_url, accept='text/html'):
+def perform_http_get(target_url, accept='text/html', redirects=5):
+    if redirects <= 0:
+        print("Too many redirects.")
+        return None, None
+
     try:
         parsed = urlparse(target_url)
         if not parsed.scheme:
@@ -40,7 +47,18 @@ def perform_http_get(target_url, accept='text/html'):
                     break
                 response += chunk
 
-        header, _, body = response.partition(b"\r\n\r\n")
+        header_bytes, _, body = response.partition(b"\r\n\r\n")
+        headers = header_bytes.decode("utf-8", errors="ignore").split("\r\n")
+        status_line = headers[0]
+
+        if "301" in status_line or "302" in status_line:
+            for line in headers:
+                if line.lower().startswith("location:"):
+                    new_url = line.split(":", 1)[1].strip()
+                    if not new_url.startswith("http"):
+                        new_url = f"{parsed.scheme}://{host}{new_url}"
+                    return perform_http_get(new_url, accept, redirects - 1)
+
         return "text/html", body.decode("utf-8", errors="ignore")
 
     except Exception as e:
