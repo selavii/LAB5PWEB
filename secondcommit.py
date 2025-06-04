@@ -1,11 +1,12 @@
 import argparse
 import socket
 import ssl
-from urllib.parse import urlparse, quote_plus
 import html2text
+import webbrowser
+from urllib.parse import urlparse, quote_plus
 from bs4 import BeautifulSoup
 
-def perform_http_get(target_url, accept='text/html', depth=5):
+def perform_http_get(target_url, accept='text/html'):
     try:
         parsed = urlparse(target_url)
         if not parsed.scheme:
@@ -63,12 +64,26 @@ def search_bing(query):
     soup = BeautifulSoup(html, "html.parser")
     results = soup.find_all("li", class_="b_algo")
 
+    links = []
     print(f"\nTop {min(10, len(results))} results for '{query}':\n")
     for i, result in enumerate(results[:10], 1):
         link = result.find("a")
         title = link.get_text(strip=True) if link else "No title"
         href = link["href"] if link and link.has_attr("href") else "No link"
         print(f"{i}. {title}\n   {href}\n")
+        links.append(href)
+
+    try:
+        choice = int(input("Enter result number to open (0 to skip): "))
+        if 1 <= choice <= len(links):
+            webbrowser.open(links[choice - 1])
+            print("Opened in browser.")
+        elif choice == 0:
+            print("No link opened.")
+        else:
+            print("Invalid choice.")
+    except ValueError:
+        print("Invalid input.")
 
 def main():
     parser = argparse.ArgumentParser(description="go2web - Minimal web client")
