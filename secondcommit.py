@@ -1,4 +1,4 @@
-# Add HTTP redirect handling (301/302)
+#Add simple HTTP response caching using local file
 #!/usr/bin/env python3
 
 import argparse
@@ -6,13 +6,42 @@ import socket
 import ssl
 import html2text
 import webbrowser
+import os
+import hashlib
+import pickle
 from urllib.parse import urlparse, quote_plus
 from bs4 import BeautifulSoup
+from pathlib import Path
+
+# Create a directory for caching
+CACHE_DIR = Path.home() / ".go2web_cache"
+CACHE_DIR.mkdir(exist_ok=True)
+
+def get_cache_key(url):
+    return hashlib.md5(url.encode()).hexdigest()
+
+def get_from_cache(url):
+    key = get_cache_key(url)
+    path = CACHE_DIR / key
+    if path.exists():
+        with open(path, "rb") as f:
+            return pickle.load(f)
+    return None
+
+def save_to_cache(url, data):
+    key = get_cache_key(url)
+    path = CACHE_DIR / key
+    with open(path, "wb") as f:
+        pickle.dump(data, f)
 
 def perform_http_get(target_url, accept='text/html', redirects=5):
     if redirects <= 0:
         print("Too many redirects.")
         return None, None
+
+    cached = get_from_cache(target_url)
+    if cached:
+        return cached.get("content_type"), cached.get("body")
 
     try:
         parsed = urlparse(target_url)
@@ -59,7 +88,15 @@ def perform_http_get(target_url, accept='text/html', redirects=5):
                         new_url = f"{parsed.scheme}://{host}{new_url}"
                     return perform_http_get(new_url, accept, redirects - 1)
 
-        return "text/html", body.decode("utf-8", errors="ignore")
+        content_type = "text/html"
+        for line in headers:
+            if line.lower().startswith("content-type:"):
+                content_type = line.split(":", 1)[1].strip()
+                break
+
+        decoded = body.decode("utf-8", errors="ignore")
+        save_to_cache(target_url, {"content_type": content_type, "body": decoded})
+        return content_type, decoded
 
     except Exception as e:
         print(f"Request error: {e}")
