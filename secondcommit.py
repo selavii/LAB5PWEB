@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
-#Add HTML-to-text conversion for human-readable output
 import argparse
 import socket
 import ssl
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 import html2text
+from bs4 import BeautifulSoup
 
 def perform_http_get(target_url, accept='text/html', depth=5):
     try:
@@ -53,6 +52,24 @@ def convert_to_text(html_content):
     h.ignore_images = True
     return h.handle(html_content)
 
+def search_bing(query):
+    encoded = quote_plus(query)
+    url = f"http://www.bing.com/search?q={encoded}"
+    ctype, html = perform_http_get(url)
+    if not html:
+        print("Search failed.")
+        return
+
+    soup = BeautifulSoup(html, "html.parser")
+    results = soup.find_all("li", class_="b_algo")
+
+    print(f"\nTop {min(10, len(results))} results for '{query}':\n")
+    for i, result in enumerate(results[:10], 1):
+        link = result.find("a")
+        title = link.get_text(strip=True) if link else "No title"
+        href = link["href"] if link and link.has_attr("href") else "No link"
+        print(f"{i}. {title}\n   {href}\n")
+
 def main():
     parser = argparse.ArgumentParser(description="go2web - Minimal web client")
     parser.add_argument("-u", "--url", help="Fetch content from URL")
@@ -67,7 +84,8 @@ def main():
             output = body if "json" in ctype else convert_to_text(body)
             print(output)
     elif args.search:
-        print(f"Search mode: {' '.join(args.search)}")
+        query = " ".join(args.search)
+        search_bing(query)
     else:
         parser.print_help()
 
